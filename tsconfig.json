@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "declaration": true,
+    "target": "ES6",
+    "declarationDir": "./dist",
+    "moduleResolution": "node",
+    "lib": ["ES6", "DOM","ESNext"],
+    "emitDeclarationOnly": false
+  }
+}
