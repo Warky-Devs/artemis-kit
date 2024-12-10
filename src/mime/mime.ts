@@ -7410,7 +7410,7 @@ export const MimeTypeList :MimeTypes = {
   'image/jpeg': {
     source: 'iana',
     compressible: false,
-    extensions: ['jpeg', 'jpg', 'jpe', 'jfif'],
+    extensions: [ 'jpg', 'jpe', 'jpeg','jfif'],
   },
   'image/jph': {
     source: 'iana',

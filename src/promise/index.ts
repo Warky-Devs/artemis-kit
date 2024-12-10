@@ -32,7 +32,7 @@ export const WaitUntil = async (
 
     setTimeout(() => {
       clearInterval(interval);
-      reject(new Error("Wait Timeout"));
+      reject(Error("Wait Timeout"));
     }, options?.timeout ?? 5000);
   });
 

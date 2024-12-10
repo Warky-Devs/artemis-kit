@@ -7,22 +7,24 @@
  */
 export function trimLeft(
   str: string,
-  // biome-ignore lint: Stupid biome Rule
-  chars: string = ' ',
+  chars: string = " ",
   times: number = Number.POSITIVE_INFINITY
 ): string {
-  if (!str) return str
+  if (!str) return str;
 
-  let count = 0
-  let startIdx = 0
-  const charSet = new Set(chars)
+  let result = str;
+  let count = 0;
+  const charArray = [...chars]; // Split into Unicode characters
+  const charSet = new Set(charArray);
 
-  while (startIdx < str.length && charSet.has(str[startIdx]) && count < times) {
-    startIdx++
-    count++
+  while (count < times && result.length > 0) {
+    const firstChar = [...result][0]; // Get first Unicode character
+    if (!charSet.has(firstChar)) break;
+    result = result.slice(firstChar.length); // Skip the entire Unicode character
+    count++;
   }
 
-  return str.slice(startIdx)
+  return result;
 }
 
 /**
@@ -34,20 +36,22 @@ export function trimLeft(
  */
 export function trimRight(
   str: string,
-  // biome-ignore lint: Stupid biome Rule
-  chars: string = ' ',
+  chars: string = " ",
   times: number = Number.POSITIVE_INFINITY
 ): string {
-  if (!str) return str
+  if (!str) return str;
 
-  let count = 0
-  let endIdx = str.length - 1
-  const charSet = new Set(chars)
+  let result = str;
+  let count = 0;
+  const charArray = [...chars]; // Split into Unicode characters
+  const charSet = new Set(charArray);
 
-  while (endIdx >= 0 && charSet.has(str[endIdx]) && count < times) {
-    endIdx--
-    count++
+  while (count < times && result.length > 0) {
+    const lastChar = [...result].slice(-1)[0]; // Get last Unicode character
+    if (!charSet.has(lastChar)) break;
+    result = result.slice(0, -lastChar.length); // Remove the entire Unicode character
+    count++;
   }
 
-  return str.slice(0, endIdx + 1)
+  return result;
 }

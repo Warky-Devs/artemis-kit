@@ -1,3 +1,4 @@
+
 /**
  * Converts a File object to a base64 encoded string.
  * @param file - The File object to convert
@@ -7,11 +8,12 @@ function FileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => {
-      const d = reader.result?.toString()
-      resolve(btoa(d ?? ''))
+      const dataUrl = (reader.result ?? '') as string
+      const base64 = dataUrl?.split?.(',')?.[1]
+      resolve(base64)
     }
     reader.onerror = reject
-    reader.readAsArrayBuffer(file)
+    reader.readAsDataURL(file)
   })
 }
 

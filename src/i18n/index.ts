@@ -1,356 +1,475 @@
-/**
- * @fileoverview Internationalization module with IndexedDB caching and server synchronization
- * @version 1.0.0
- */
+import {
+  I18nConfig,
+  CacheEntry,
+  TranslationString,
+  TranslationResponse,
+  I18nUpdateEvent,
+  CacheStats,
+  I18nManager,
+} from "./types";
 
 /**
- * Configuration options for the I18n manager
+ * Creates an instance of the I18n manager with safe memory caching
  */
-type I18nConfig = {
-    /** Base URL for the translations API */
-    apiUrl?: string;
-};
-
-/**
- * Translation entry structure as stored in the cache
- */
-type CacheEntry = {
-    /** The translated string value */
-    value: string;
-    /** Version number of the translation */
-    version: number;
-};
-
-/**
- * Translation string registration format
- */
-type TranslationString = {
-    /** Unique identifier for the translation */
-    id: string;
-    /** The translated text */
-    value: string;
-};
-
-/**
- * Server response format for translation requests
- */
-type TranslationResponse = {
-    /** The translated text */
-    value: string;
-    /** Version number of the translation */
-    version: number;
-};
-
-/**
- * Event payload for translation updates
- */
-type I18nUpdateEvent = CustomEvent<{
-    /** Identifier of the updated translation */
-    id: string;
-    /** New translated value */
-    value: string;
-}>;
-
-/**
- * Core I18n manager interface
- */
-interface I18nManager {
-    configure(options?: I18nConfig): void;
-    registerStrings(strings: TranslationString[], version: number): Promise<void>;
-    getString(componentId: string, defaultValue?: string): Promise<string>;
-    getStringSync(componentId: string, defaultValue?: string): string;
-    clearCache(): Promise<void>;
-    getApiUrl(): string;
-}
-
 const createI18nManager = (): I18nManager => {
-    /** Database name for IndexedDB storage */
-    const DB_NAME = 'i18n-cache';
-    /** Store name for translations within IndexedDB */
-    const STORE_NAME = 'translations';
-    /** Current version of the translations schema */
-    const CURRENT_VERSION = 1;
-    /** Default API endpoint if none provided */
-    const DEFAULT_API_URL = '/api/translations';
+  /** Database name for IndexedDB storage */
+  const DB_NAME = "i18n-cache";
+  /** Store name for translations within IndexedDB */
+  const STORE_NAME = "translations";
+  /** Current version of the translations schema */
+  const CURRENT_VERSION = 1;
+  /** Default API endpoint if none provided */
+  const DEFAULT_API_URL = "/api/translations";
+  /** Default maximum cache size */
+  const DEFAULT_MAX_CACHE_SIZE = 1000;
+  /** Default TTL for cache entries (24 hours) */
+  const DEFAULT_CACHE_TTL = 24 * 60 * 60 * 1000;
 
-    let db: IDBDatabase | null = null;
-    let serverUrl: string = DEFAULT_API_URL;
-    const cache = new Map<string, CacheEntry>();
-    const pendingUpdates = new Set<string>();
-    let initPromise: Promise<void> | null = null;
-    let isInitialized = false;
+  // Core state
+  let db: IDBDatabase | null = null;
+  let serverUrl: string = DEFAULT_API_URL;
+  let maxCacheSize: number = DEFAULT_MAX_CACHE_SIZE;
+  let cacheTTL: number = DEFAULT_CACHE_TTL;
 
-    /**
-     * Initializes the IndexedDB database and sets up the object store
-     * @returns Promise that resolves when the database is ready
-     */
-    const initDatabase = async (): Promise<void> => {
-        if (isInitialized) return;
+  // Cache management
+  const cache = new Map<string, CacheEntry>();
+  const lruQueue: string[] = [];
+  const stats = {
+    hits: 0,
+    misses: 0,
+  };
 
-        return new Promise((resolve, reject) => {
-            const request = indexedDB.open(DB_NAME, CURRENT_VERSION);
+  // Update tracking
+  const pendingUpdates = new Set<string>();
+  let initPromise: Promise<void> | null = null;
+  let isInitialized = false;
 
-            request.onerror = () => reject(new Error('Failed to open database'));
+  /**
+   * Checks if IndexedDB is available
+   */
+  const isIndexedDBAvailable = (): boolean => {
+    try {
+      return typeof indexedDB !== "undefined" && indexedDB !== null;
+    } catch {
+      return false;
+    }
+  };
 
-            request.onupgradeneeded = (event) => {
-                const database = (event.target as IDBOpenDBRequest).result;
-                if (!database.objectStoreNames.contains(STORE_NAME)) {
-                    const store = database.createObjectStore(STORE_NAME, { keyPath: 'id' });
-                    store.createIndex('version', 'version', { unique: false });
-                }
-            };
+  /**
+   * Updates LRU tracking for cache entry
+   */
+  const updateLRU = (id: string): void => {
+    const index = lruQueue.indexOf(id);
+    if (index > -1) {
+      lruQueue.splice(index, 1);
+    }
+    lruQueue.push(id);
+  };
 
-            request.onsuccess = async (event) => {
-                db = (event.target as IDBOpenDBRequest).result;
-                await loadCacheFromDb();
-                isInitialized = true;
-                resolve();
-            };
+  /**
+   * Evicts oldest entries when cache exceeds max size
+   */
+  const evictCacheEntries = (): void => {
+    while (cache.size > maxCacheSize && lruQueue.length > 0) {
+      const oldestId = lruQueue.shift();
+      if (oldestId) {
+        cache.delete(oldestId);
+      }
+    }
+  };
+
+  /**
+   * Checks if a cache entry is still valid
+   */
+  const isCacheEntryValid = (entry: CacheEntry): boolean => {
+    return Date.now() - entry.timestamp < cacheTTL;
+  };
+
+  /**
+   * Safely retrieves a value from memory cache
+   */
+  const getFromMemoryCache = (id: string): CacheEntry | null => {
+    const entry = cache.get(id);
+    if (!entry) {
+      stats.misses++;
+      return null;
+    }
+
+    if (!isCacheEntryValid(entry)) {
+      cache.delete(id);
+      const index = lruQueue.indexOf(id);
+      if (index > -1) {
+        lruQueue.splice(index, 1);
+      }
+      stats.misses++;
+      return null;
+    }
+
+    stats.hits++;
+    updateLRU(id);
+    return entry;
+  };
+
+  /**
+   * Safely stores a value in memory cache
+   */
+  const setInMemoryCache = (
+    id: string,
+    value: string,
+    version: number
+  ): void => {
+    const entry: CacheEntry = {
+      value,
+      version,
+      timestamp: Date.now(),
+    };
+
+    cache.set(id, entry);
+    updateLRU(id);
+    evictCacheEntries();
+  };
+
+  /**
+   * Initializes the system with IndexedDB if available
+   */
+  const initDatabase = async (): Promise<void> => {
+    if (isInitialized) return;
+
+    if (!isIndexedDBAvailable()) {
+      console.warn("IndexedDB not available, falling back to memory-only mode");
+      isInitialized = true;
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, CURRENT_VERSION);
+
+      request.onerror = () => {
+        console.warn(
+          "Failed to open IndexedDB, falling back to memory-only mode"
+        );
+        isInitialized = true;
+        resolve();
+      };
+
+      request.onupgradeneeded = (event) => {
+        const database = (event.target as IDBOpenDBRequest).result;
+        if (!database.objectStoreNames.contains(STORE_NAME)) {
+          const store = database.createObjectStore(STORE_NAME, {
+            keyPath: "id",
+          });
+          store.createIndex("version", "version", { unique: false });
+          store.createIndex("timestamp", "timestamp", { unique: false });
+        }
+      };
+
+      request.onsuccess = async (event) => {
+        db = (event.target as IDBOpenDBRequest).result;
+        await loadCacheFromDb();
+        isInitialized = true;
+        resolve();
+      };
+    });
+  };
+
+  /**
+   * Loads valid translations from IndexedDB
+   */
+  const loadCacheFromDb = async (): Promise<void> => {
+    if (!db) return;
+
+    return new Promise((resolve, reject) => {
+      const transaction = db!.transaction([STORE_NAME], "readonly");
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.getAll();
+
+      request.onsuccess = (event) => {
+        const entries = (event.target as IDBRequest).result;
+        entries.forEach((entry) => {
+          if (isCacheEntryValid(entry)) {
+            setInMemoryCache(entry.id, entry.value, entry.version);
+          } else {
+            // Clean up expired entries
+            const deleteTransaction = db!.transaction(
+              [STORE_NAME],
+              "readwrite"
+            );
+            const deleteStore = deleteTransaction.objectStore(STORE_NAME);
+            deleteStore.delete(entry.id);
+          }
         });
-    };
+        resolve();
+      };
 
-    /**
-     * Loads all translations from IndexedDB into memory cache
-     */
-    const loadCacheFromDb = async (): Promise<void> => {
-        if (!db) throw new Error('Database not initialized');
+      request.onerror = () => {
+        console.warn("Failed to load cache from IndexedDB");
+        resolve();
+      };
+    });
+  };
 
-        return new Promise((resolve, reject) => {
-            if (!db) throw new Error('Database not initialized');
-            const transaction = db.transaction([STORE_NAME], 'readonly');
-            const store = transaction.objectStore(STORE_NAME);
-            const request = store.getAll();
+  const fetchFromServer = async (
+    componentId: string
+  ): Promise<string | null> => {
+    try {
+      const response = await fetch(`${serverUrl}/${componentId}`);
+      if (!response.ok) throw new Error("Failed to fetch translation");
 
-            request.onsuccess = (event) => {
-                const entries = (event.target as IDBRequest).result;
-                entries.forEach(entry => {
-                    cache.set(entry.id, {
-                        value: entry.value,
-                        version: entry.version
-                    });
-                });
-                resolve();
-            };
+      const data: TranslationResponse = await response.json();
+      await registerStrings(
+        [
+          {
+            id: componentId,
+            value: data.value,
+          },
+        ],
+        data.version
+      );
 
-            request.onerror = () => reject(new Error('Failed to load cache'));
+      return data.value;
+    } catch (error) {
+      console.error("Error fetching translation:", error);
+      return null;
+    } finally {
+      pendingUpdates.delete(componentId);
+    }
+  };
+
+  /**
+   * Emits update event
+   */
+  const emitUpdateEvent = (id: string, value: string): void => {
+    const event = new CustomEvent("i18n-updated", {
+      detail: { id, value },
+    }) as I18nUpdateEvent;
+    window.dispatchEvent(event);
+  };
+
+  /**
+   * Configures the I18n manager
+   */
+  const configure = (options: I18nConfig = {}): void => {
+    if (!isInitialized) {
+      serverUrl = options.apiUrl || DEFAULT_API_URL;
+      maxCacheSize = options.maxCacheSize || DEFAULT_MAX_CACHE_SIZE;
+      cacheTTL = options.cacheTTL || DEFAULT_CACHE_TTL;
+      initPromise = initDatabase();
+      return;
+    }
+
+    // Update existing configuration
+    if (options.apiUrl) {
+      serverUrl = options.apiUrl;
+      pendingUpdates.clear(); // Clear pending updates as API endpoint changed
+    }
+    if (options.maxCacheSize) {
+      maxCacheSize = options.maxCacheSize;
+      evictCacheEntries(); // Immediately apply new cache size limit
+    }
+    if (options.cacheTTL) {
+      cacheTTL = options.cacheTTL;
+      // Optionally clean up expired entries based on new TTL
+      for (const [id, entry] of cache.entries()) {
+        if (!isCacheEntryValid(entry)) {
+          cache.delete(id);
+          const index = lruQueue.indexOf(id);
+          if (index > -1) {
+            lruQueue.splice(index, 1);
+          }
+        }
+      }
+    }
+  };
+
+  /**
+   * Registers new translations in both stores
+   */
+  const registerStrings = async (
+    strings: TranslationString[],
+    version: number
+  ): Promise<void> => {
+    if (!initPromise) configure();
+    await initPromise;
+
+    // Always update memory cache first
+    strings.forEach((string) => {
+      setInMemoryCache(string.id, string.value, version);
+    });
+
+    // If no IndexedDB, we're done
+    if (!db) return;
+
+    return new Promise((resolve, reject) => {
+      const transaction = db!.transaction([STORE_NAME], "readwrite");
+      const store = transaction.objectStore(STORE_NAME);
+
+      strings.forEach((string) => {
+        const entry = {
+          id: string.id,
+          value: string.value,
+          version,
+          timestamp: Date.now(),
+        };
+        store.put(entry);
+      });
+
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => {
+        console.warn("Failed to persist translations to IndexedDB");
+        resolve(); // Still resolve as memory cache is updated
+      };
+    });
+  };
+
+  /**
+   * Gets translation synchronously with optional update check
+   */
+  const getStringSync = (componentId: string, defaultValue = ""): string => {
+    if (!isInitialized) {
+      console.warn("I18nManager not initialized. Call configure() first.");
+      return defaultValue;
+    }
+
+    const cached = getFromMemoryCache(componentId);
+    if (cached) {
+      // Check for updates if version mismatch
+      if (
+        cached.version !== CURRENT_VERSION &&
+        !pendingUpdates.has(componentId)
+      ) {
+        pendingUpdates.add(componentId);
+        fetchFromServer(componentId).then((newValue) => {
+          if (newValue) emitUpdateEvent(componentId, newValue);
         });
-    };
+      }
+      return cached.value;
+    }
 
-    /**
-     * Registers new translations in both IndexedDB and memory cache
-     * @param strings - Array of translation strings to register
-     * @param version - Version number for these translations
-     */
-    const registerStrings = async (strings: TranslationString[], version: number): Promise<void> => {
-        if (!initPromise) configure();
-        await initPromise;
-        if (!db) throw new Error('Database not initialized');
+    // Schedule background fetch if not already pending
+    if (!pendingUpdates.has(componentId)) {
+      pendingUpdates.add(componentId);
+      fetchFromServer(componentId).then((newValue) => {
+        if (newValue) emitUpdateEvent(componentId, newValue);
+      });
+    }
+    return defaultValue;
+  };
 
-        return new Promise((resolve, reject) => {
-            if (!db) throw new Error('Database not initialized');
-            const transaction = db.transaction([STORE_NAME], 'readwrite');
-            const store = transaction.objectStore(STORE_NAME);
+  /**
+   * Gets translation asynchronously with full update cycle
+   */
+  const getString = async (
+    componentId: string,
+    defaultValue = ""
+  ): Promise<string> => {
+    if (!initPromise) configure();
+    await initPromise;
 
-            strings.forEach(string => {
-                const entry = {
-                    id: string.id,
-                    value: string.value,
-                    version: version
-                };
-                store.put(entry);
-                cache.set(string.id, {
-                    value: string.value,
-                    version: version
-                });
-            });
+    // Check memory cache first
+    const cached = getFromMemoryCache(componentId);
+    if (cached && cached.version === CURRENT_VERSION) {
+      return cached.value;
+    }
 
-            transaction.oncomplete = () => resolve();
-            transaction.onerror = () => reject(new Error('Failed to register strings'));
-        });
-    };
+    // If no IndexedDB, try server directly
+    if (!db) {
+      const serverValue = await fetchFromServer(componentId);
+      return serverValue || defaultValue;
+    }
 
-    /**
-     * Fetches a translation from the server
-     * @param componentId - Identifier for the translation to fetch
-     * @returns The translated string or null if fetch fails
-     */
-    const fetchFromServer = async (componentId: string): Promise<string | null> => {
-        try {
-            const response = await fetch(`${serverUrl}/${componentId}`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch translation');
-            }
-            const data: TranslationResponse = await response.json();
-            
-            await registerStrings([{
-                id: componentId,
-                value: data.value
-            }], data.version);
+    // Try IndexedDB, then fall back to server
+    return new Promise((resolve) => {
+      const transaction = db!.transaction([STORE_NAME], "readonly");
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.get(componentId);
 
-            return data.value;
-        } catch (error) {
-            console.error('Error fetching translation:', error);
-            return null;
-        } finally {
-            pendingUpdates.delete(componentId);
-        }
-    };
+      request.onsuccess = async (event) => {
+        const result = (event.target as IDBRequest).result;
 
-    /**
-     * Emits a custom event when translations are updated
-     * @param id - Identifier of the updated translation
-     * @param value - New translated value
-     */
-    const emitUpdateEvent = (id: string, value: string): void => {
-        const event = new CustomEvent('i18n-updated', {
-            detail: { id, value }
-        }) as I18nUpdateEvent;
-        window.dispatchEvent(event);
-    };
-
-    /**
-     * Synchronously retrieves a translation with background update check
-     * @param componentId - Identifier for the translation
-     * @param defaultValue - Fallback value if translation not found
-     * @returns The translated string or default value
-     */
-    const getStringSync = (componentId: string, defaultValue = ''): string => {
-        if (!isInitialized) {
-            console.warn('I18nManager not initialized. Call configure() first or await initialization.');
-            return defaultValue;
+        if (
+          result &&
+          result.version === CURRENT_VERSION &&
+          isCacheEntryValid(result)
+        ) {
+          setInMemoryCache(result.id, result.value, result.version);
+          resolve(result.value);
+          return;
         }
 
-        const cached = cache.get(componentId);
-        if (cached) {
-            if (cached.version !== CURRENT_VERSION && !pendingUpdates.has(componentId)) {
-                pendingUpdates.add(componentId);
-                fetchFromServer(componentId).then(newValue => {
-                    if (newValue) {
-                        emitUpdateEvent(componentId, newValue);
-                    }
-                });
-            }
-            return cached.value;
-        }
+        const serverValue = await fetchFromServer(componentId);
+        resolve(serverValue || defaultValue);
+      };
 
-        if (!pendingUpdates.has(componentId)) {
-            pendingUpdates.add(componentId);
-            fetchFromServer(componentId).then(newValue => {
-                if (newValue) {
-                    emitUpdateEvent(componentId, newValue);
-                }
-            });
-        }
-        return defaultValue;
-    };
+      request.onerror = async () => {
+        console.warn("Error reading from IndexedDB cache");
+        const serverValue = await fetchFromServer(componentId);
+        resolve(serverValue || defaultValue);
+      };
+    });
+  };
 
-    /**
-     * Asynchronously retrieves a translation
-     * @param componentId - Identifier for the translation
-     * @param defaultValue - Fallback value if translation not found
-     * @returns Promise resolving to the translated string
-     */
-    const getString = async (componentId: string, defaultValue = ''): Promise<string> => {
-        if (!initPromise) configure();
-        await initPromise;
-        if (!db) throw new Error('Database not initialized');
+  /**
+   * Clears all caches
+   */
+  const clearCache = async (): Promise<void> => {
+    if (!initPromise) configure();
+    await initPromise;
 
-        return new Promise( (resolve) => {
-            if (!db) throw new Error('Database not initialized');
-            const transaction = db.transaction([STORE_NAME], 'readonly');
-            const store = transaction.objectStore(STORE_NAME);
-            const request = store.get(componentId);
+    // Clear memory cache
+    cache.clear();
+    lruQueue.length = 0;
+    stats.hits = 0;
+    stats.misses = 0;
 
-            request.onsuccess = async (event) => {
-                const result = (event.target as IDBRequest).result;
-                
-                if (result && result.version === CURRENT_VERSION) {
-                    resolve(result.value);
-                    return;
-                }
+    // If no IndexedDB, we're done
+    if (!db) return;
 
-                const serverValue = await fetchFromServer(componentId);
-                resolve(serverValue || defaultValue);
-            };
+    return new Promise((resolve, reject) => {
+      const transaction = db!.transaction([STORE_NAME], "readwrite");
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.clear();
 
-            request.onerror = () => {
-                console.error('Error reading from cache');
-                resolve(defaultValue);
-            };
-        });
-    };
+      request.onsuccess = () => resolve();
+      request.onerror = () => {
+        console.warn("Failed to clear IndexedDB cache");
+        resolve(); // Still resolve as memory cache is cleared
+      };
+    });
+  };
 
-    /**
-     * Clears all cached translations
-     */
-    const clearCache = async (): Promise<void> => {
-        if (!initPromise) configure();
-        await initPromise;
-        if (!db) throw new Error('Database not initialized');
+  /**
+   * Gets current API URL
+   */
+  const getApiUrl = (): string => serverUrl;
 
-        return new Promise((resolve, reject) => {
-            if (!db) throw new Error('Database not initialized');
-            const transaction = db.transaction([STORE_NAME], 'readwrite');
-            const store = transaction.objectStore(STORE_NAME);
-            const request = store.clear();
+  /**
+   * Gets cache statistics
+   */
+  const getCacheStats = (): CacheStats => ({
+    memorySize: cache.size,
+    dbSize: db ? -1 : 0, // -1 indicates DB exists but size unknown
+    hits: stats.hits,
+    misses: stats.misses,
+  });
 
-            request.onsuccess = () => {
-                cache.clear();
-                resolve();
-            };
-            request.onerror = () => reject(new Error('Failed to clear cache'));
-        });
-    };
-
-    /**
-     * Configures the I18n manager
-     * @param options - Configuration options
-     */
-    const configure = (options: I18nConfig = {}): void => {
-        if (!isInitialized) {
-            serverUrl = options.apiUrl || DEFAULT_API_URL;
-            initPromise = initDatabase();
-            return;
-        }
-        
-        if (options.apiUrl) {
-            serverUrl = options.apiUrl;
-            pendingUpdates.clear();
-        }
-    };
-
-    /**
-     * Returns the current API URL
-     */
-    const getApiUrl = (): string => serverUrl;
-
-    return {
-        configure,
-        registerStrings,
-        getString,
-        getStringSync,
-        clearCache,
-        getApiUrl
-    };
+  // Complete the manager interface
+  return {
+    configure,
+    registerStrings,
+    getString,
+    getStringSync,
+    clearCache,
+    getApiUrl,
+    getCacheStats,
+  };
 };
 
-// Create the singleton instance
-const i18nManager = createI18nManager();
-
-// Export the main manager
-export const i18n = i18nManager;
-
-// Export shortcut functions
-export const _t = i18nManager.getStringSync;
-export const _tt = i18nManager.getString;
-
-// Export everything as a namespace
+// Export everything
+export const i18n = createI18nManager();
+export const _t = i18n.getStringSync;
+export const _tt = i18n.getString;
 export default {
-    ...i18nManager,
-    _t,
-    _tt
+  ...i18n,
+  _t,
+  _tt,
 };
-
-// Type declarations for the shortcut functions
-export type GetStringSync = typeof i18nManager.getStringSync;
-export type GetString = typeof i18nManager.getString;

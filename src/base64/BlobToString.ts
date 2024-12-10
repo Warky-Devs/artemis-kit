@@ -3,12 +3,21 @@
  * @param blob - The Blob object to convert
  * @returns Promise that resolves with the text
  */
-async function blobToString(blob: Blob | string): Promise<string> {
-  if (!blob) return ''
-  if (typeof blob === 'string') {
-    return blob
-  }
-  return await blob.text()
+function BlobToString(blob: Blob | string): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    if (!blob) return resolve('')
+    if (typeof blob === 'string') {
+      return resolve(blob)
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = reader.result as string
+      resolve(text)
+    }
+    reader.onerror = reject
+    reader.readAsText(blob)
+  })
 }
 
-export { blobToString }
+export { BlobToString }

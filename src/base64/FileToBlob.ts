@@ -7,11 +7,13 @@ function FileToBlob(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => {
-      resolve(new Blob([reader.result as ArrayBuffer]))
+      const arrayBuffer = reader.result as ArrayBuffer
+      resolve(new Blob([arrayBuffer]))
     }
     reader.onerror = reject
     reader.readAsArrayBuffer(file)
   })
 }
+
 
 export { FileToBlob }
