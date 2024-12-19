@@ -5,3 +5,4 @@ export * from "./locale";
 export * from "./fileSize";
 export * from "./legacy";
 export * from "./uuid";
+export * from "./time";

@@ -5,3 +5,4 @@ export * from "./promise";
 export * from "./i18n";
 export * from "./dataqueue";
 //export * from './logger'
+export * from "./dom";
