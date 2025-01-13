@@ -1,6 +1,6 @@
 {
   "name": "@warkypublic/artemis-kit",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A comprehensive TypeScript/JavaScript utility library focused on precision and efficiency.",
   "type": "module",
   "main": "./src/index.ts",
@@ -13,6 +13,9 @@
   },
   "typesVersions": {
     "*": {
+      ".": [
+        "./src/index.ts"
+      ],
       "dataqueue": [
         "./src/dataqueue/index.ts"
       ],
@@ -27,9 +30,22 @@
     "module": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {
-      ".": "./dist/index.ts",
+      ".": "./dist/index.js",
       "./dataqueue": "./dist/dataqueue.js",
       "./object": "./dist/object.js"
+    },
+    "typesVersions": {
+      "*": {
+        ".": [
+          "./dist/index.d.ts"
+        ],
+        "dataqueue": [
+          "./dist/dataqueue..d.ts"
+        ],
+        "object": [
+          "./dist/object.d.ts"
+        ]
+      }
     }
   },
   "files": [

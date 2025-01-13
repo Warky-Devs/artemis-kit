@@ -1,5 +1,11 @@
 # @warkypublic/artemis-kit
 
+## 1.0.4
+
+### Patch Changes
+
+- Fixed public exports
+
 ## 1.0.3
 
 ### Patch Changes
