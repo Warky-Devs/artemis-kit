@@ -1,5 +1,11 @@
 # @warkypublic/artemis-kit
 
+## 1.0.3
+
+### Patch Changes
+
+- Updated export for object and dataqueue.
+
 ## 1.0.2
 
 ### Patch Changes
