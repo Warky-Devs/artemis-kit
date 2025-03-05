@@ -1,5 +1,11 @@
 # @warkypublic/artemis-kit
 
+## 1.0.5
+
+### Patch Changes
+
+- 6e3d067: Added blankValue method
+
 ## 1.0.4
 
 ### Patch Changes
