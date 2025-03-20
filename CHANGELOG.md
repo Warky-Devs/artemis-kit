@@ -1,5 +1,11 @@
 # @warkypublic/artemis-kit
 
+## 1.0.6
+
+### Patch Changes
+
+- 0347718: Bump version
+
 ## 1.0.5
 
 ### Patch Changes
