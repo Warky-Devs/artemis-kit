@@ -1,5 +1,11 @@
 # @warkypublic/artemis-kit
 
+## 1.0.5
+
+### Patch Changes
+
+- 6b6f418: Release split export changes
+
 ## 1.0.4
 
 ### Patch Changes
