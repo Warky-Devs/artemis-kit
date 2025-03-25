@@ -1,10 +1,16 @@
 # @warkypublic/artemis-kit
 
+## 1.0.6
+
+### Patch Changes
+
+- 0347718: Bump version
+
 ## 1.0.5
 
 ### Patch Changes
 
-- 6e3d067: Added blankValue method
+- 6b6f418: Release split export changes
 
 ## 1.0.4
 
