@@ -1,5 +1,11 @@
 # @warkypublic/artemis-kit
 
+## 1.0.7
+
+### Patch Changes
+
+- 1bd493a: Fixed object.getNestedValue to handle null values
+
 ## 1.0.6
 
 ### Patch Changes
