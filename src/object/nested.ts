@@ -20,7 +20,8 @@ export function getNestedValue(path: string, obj: Record<string, any>): any {
   if (parts.length === 0) return undefined;
 
   return parts.reduce((prev, curr) => {
-    if (prev === undefined) return undefined;
+    if (prev === null || prev === undefined) return undefined;
+    if (typeof prev !== "object") return undefined;
     return prev[curr];
   }, obj);
 }
