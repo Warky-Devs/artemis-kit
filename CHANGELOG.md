@@ -1,5 +1,11 @@
 # @warkypublic/artemis-kit
 
+## 1.0.8
+
+### Patch Changes
+
+- 67a17e5: Added toBaseN and fromBaseN with test cases
+
 ## 1.0.7
 
 ### Patch Changes
