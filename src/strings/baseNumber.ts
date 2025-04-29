@@ -83,3 +83,40 @@ export function toBaseN(num: number | bigint, base: number = 36): string {
   // Add negative sign if necessary
   return bigNum < BigInt(0) ? '-' + result : result;
 }
+
+
+/**
+ * Convert a string in a given base to a decimal number, if it fails, returns fallback
+ * This implementation targets ES6+ and uses BigInt for large number support
+ * 
+ * @param str The string to convert
+ * @param base The base to convert from (2-36)
+ * @returns The decimal number as BigInt
+ */
+export function tryFromBaseN(str: string, base: number = 36, fallback: bigint | number = 0): bigint| number {
+  try {
+    return fromBaseN(str, base)
+  } catch(_e) {
+    console.warn("tryFromBaseN",str,base,_e)
+    return fallback
+  }
+
+}
+
+/**
+ * Convert a decimal number to a string in a given base, it it fails, use fallback
+ * This implementation targets ES6+ and uses BigInt for large number support
+ * 
+ * @param num The decimal number to convert
+ * @param base The base to convert to (2-36)
+ * @returns The string representation in the specified base
+ */
+export function tryToBaseN(num: number | bigint, base: number = 36, fallback: string = ""): string {
+  try {
+    return toBaseN(num, base)
+  } catch(_e) {
+    console.warn("tryToBaseN",num,base,_e)
+    return fallback
+  }
+
+}
