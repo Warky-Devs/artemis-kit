@@ -1,6 +1,6 @@
 {
   "name": "@warkypublic/artemis-kit",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "A comprehensive TypeScript/JavaScript utility library focused on precision and efficiency.",
   "type": "module",
   "main": "./src/index.ts",

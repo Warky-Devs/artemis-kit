@@ -1,5 +1,11 @@
 # @warkypublic/artemis-kit
 
+## 1.0.9
+
+### Patch Changes
+
+- 0439207: Added tryFromBaseN and tryToBaseN
+
 ## 1.0.8
 
 ### Patch Changes
