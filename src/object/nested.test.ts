@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { getNestedValue, setNestedValue } from "./nested";
+import { findObjectByKeyValues, findObjectPath, getNestedValue, setNestedValue } from "./nested";
 
 describe("getNestedValue", () => {
   const testObj = {
@@ -168,5 +168,180 @@ describe("setNestedValue", () => {
     obj.list = [];
     setNestedValue("list[0]", "item", obj);
     expect(obj.list[0]).toBe("item");
+  });
+});
+
+
+
+describe("findObjectPath", () => {
+  const testObj = {
+    user: {
+      name: "John",
+      id: 1,
+      contacts: [
+        { id: 101, email: "john@example.com", phone: "123-456" },
+        { id: 102, email: "john.alt@example.com", phone: "789-012" },
+      ],
+      settings: {
+        id: 201,
+        notifications: {
+          email: true,
+          push: false,
+        },
+      },
+    },
+    meta: {
+      created: "2023-01-01",
+      tags: ["important", "user"],
+    },
+    items: [
+      { id: 1, name: "Item 1" },
+      { id: 2, name: "Item 2" },
+      { id: 1, name: "Item 3" }, // Duplicate ID
+    ],
+    config: {
+      defaultUser: { id: 1 }
+    }
+  };
+
+  test("should find simple property matches", () => {
+    const paths = findObjectPath(testObj, { id: 1 });
+    expect(paths).toContain("user");
+    expect(paths).toContain("items[0]");
+    expect(paths).toContain("items[2]");
+    expect(paths).toContain("config.defaultUser");
+  });
+
+  test("should find nested property matches", () => {
+    const paths = findObjectPath(testObj, { email: true });
+    expect(paths).toContain("user.settings.notifications");
+  });
+
+  test("should find matches in arrays", () => {
+    const paths = findObjectPath(testObj, { id: 101 });
+    expect(paths).toContain("user.contacts[0]");
+    
+    const paths2 = findObjectPath(testObj, { id: 102 });
+    expect(paths2).toContain("user.contacts[1]");
+  });
+
+  test("should find matches with multiple criteria", () => {
+    const paths = findObjectPath(testObj, { id: 1, name: "Item 1" });
+    expect(paths).toContain("items[0]");
+    expect(paths).not.toContain("items[2]"); // Has id: 1 but different name
+    expect(paths).not.toContain("user"); // Has id: 1 but no name property
+  });
+
+  test("should return empty array for no matches", () => {
+    const paths = findObjectPath(testObj, { id: 999 });
+    expect(paths).toEqual([]);
+  });
+
+  test("should handle empty criteria", () => {
+    const paths = findObjectPath(testObj, {});
+    expect(paths).toEqual([]);
+  });
+
+  test("should handle null or undefined input", () => {
+    expect(findObjectPath(null, { id: 1 })).toEqual([]);
+    expect(findObjectPath(undefined, { id: 1 })).toEqual([]);
+    expect(findObjectPath(testObj, null)).toEqual([]);
+    expect(findObjectPath(testObj, undefined)).toEqual([]);
+  });
+
+  test("should work with setNestedValue", () => {
+    const obj = { ...testObj }; // Clone to avoid modifying test object
+    const paths = findObjectPath(obj, { id: 101 });
+    expect(paths.length).toBeGreaterThan(0);
+    
+    const path = paths[0];
+    const originalValue = getNestedValue(path, obj);
+    const updatedValue = { ...originalValue, email: "updated@example.com" };
+    
+    setNestedValue(path, updatedValue, obj);
+    expect(getNestedValue(`${path}.email`, obj)).toBe("updated@example.com");
+  });
+
+  test("should find path to primitive array values", () => {
+    const paths = findObjectPath(testObj, { 0: "important" });
+    expect(paths).toContain("meta.tags");
+  });
+});
+
+// Only add these tests if you're implementing the advanced version
+describe("findObjectByKeyValues", () => {
+  const testObj = {
+    user: {
+      name: "John",
+      id: 1,
+      contacts: [
+        { id: 101, email: "john@example.com", phone: "123-456" },
+        { id: 102, email: "JOHN.alt@example.com", phone: "789-012" },
+      ],
+    },
+    items: [
+      { id: 1, name: "Item 1", status: "active" },
+      { id: 2, name: "Item 2", status: "inactive" },
+      { id: 3, name: "Item 3", status: "active" },
+    ],
+  };
+
+  test("should handle partial matches", () => {
+    const paths = findObjectByKeyValues(testObj, { id: 1, name: "Unknown" }, { partialMatch: true });
+    expect(paths).toContain("user");
+    expect(paths).toContain("items[0]");
+  });
+
+  test("should handle maxDepth option", () => {
+    // Should not find matches beyond depth 1
+    const paths = findObjectByKeyValues(testObj, { id: 101 }, { maxDepth: 1 });
+    expect(paths).toEqual([]);
+
+    // Should not find matches at depth 2
+    const paths2 = findObjectByKeyValues(testObj, { id: 101 }, { maxDepth: 3 });
+    expect(paths2).toContain("user.contacts[0]");
+  });
+
+  test("should handle returnFirstMatch option", () => {
+    // Should return only the first match
+    const paths = findObjectByKeyValues(testObj, { status: "active" }, { returnFirstMatch: true });
+    expect(paths.length).toBe(1);
+    expect(paths[0]).toBe("items[0]");
+  });
+
+  test("should handle case insensitive matching", () => {
+    // Should match regardless of case
+    const paths = findObjectByKeyValues(testObj, { email: "john.alt@example.com" }, { caseSensitive: false });
+    expect(paths).toContain("user.contacts[1]");
+  });
+
+  test("should use custom comparison function", () => {
+    // Custom comparator that checks if string contains substring
+    const customCompare = (a: any, b: any) => {
+      if (typeof a === 'string' && typeof b === 'string') {
+        return a.includes(b);
+      }
+      return a === b;
+    };
+    
+    const paths = findObjectByKeyValues(testObj, { email: "@example" }, { customCompare });
+    expect(paths).toContain("user.contacts[0]");
+    expect(paths).toContain("user.contacts[1]");
+  });
+
+  test("should combine multiple options", () => {
+    const paths = findObjectByKeyValues(
+      testObj,
+      { id: 1, status: "active" },
+      {
+        partialMatch: true,
+        maxDepth: 2,
+        returnFirstMatch: true
+      }
+    );
+    
+    expect(paths.length).toBe(1);
+    // Either user or items[0] could be returned since we're stopping at first match
+    expect(paths[0] === "user" || paths[0] === "items[0]").toBeTruthy();
   });
 });
