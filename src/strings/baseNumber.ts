@@ -96,8 +96,9 @@ export function toBaseN(num: number | bigint, base: number = 36): string {
 export function tryFromBaseN(str: string, base: number = 36, fallback: bigint | number = 0): bigint| number {
   try {
     return fromBaseN(str, base)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch(_e) {
-    console.warn("tryFromBaseN",str,base,_e)
+   
     return fallback
   }
 
@@ -114,8 +115,9 @@ export function tryFromBaseN(str: string, base: number = 36, fallback: bigint | 
 export function tryToBaseN(num: number | bigint, base: number = 36, fallback: string = ""): string {
   try {
     return toBaseN(num, base)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch(_e) {
-    console.warn("tryToBaseN",num,base,_e)
+    
     return fallback
   }
 
