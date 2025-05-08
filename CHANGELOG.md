@@ -1,5 +1,11 @@
 # @warkypublic/artemis-kit
 
+## 1.0.10
+
+### Patch Changes
+
+- 4058dd3: Added object retrocycle and decycle
+
 ## 1.0.9
 
 ### Patch Changes
