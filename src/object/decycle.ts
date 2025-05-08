@@ -14,7 +14,7 @@ export interface RefObject {
  * @param replacer - Optional function to replace values during the process
  * @returns A decycled copy of the object
  */
-export function decycle<T>(
+export function decycle<T=any>(
     object: T, 
     replacer?: (value: any) => any
 ): any {
@@ -130,4 +130,17 @@ export function retrocycle<T>($: T): T {
         }
     }($));
     return $;
+}
+
+/**
+ * 
+ * @description Converts a object with circular references to JSON
+ * @param json 
+ * @param object 
+ * @returns 
+ */
+export function stringify_json<T=any>(
+    object: T, 
+) {
+    return JSON.stringify(retrocycle(object))
 }
