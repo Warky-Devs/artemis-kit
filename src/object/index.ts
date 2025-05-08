@@ -1,3 +1,5 @@
 export {getNestedValue,setNestedValue} from './nested'
 export {objectCompare} from './compare'
 export {createSelectOptions} from './util'
+export {decycle,retrocycle} from './decycle'
+export type {RefObject} from './decycle'
