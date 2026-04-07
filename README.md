@@ -49,6 +49,10 @@ import { ... } from "@warkypublic/artemis-kit/strings"
 | `clarionIntToDate` | `(days)` | Clarion date int → JS Date |
 | `clarionDateStringToInt` | `(dateStr)` | "YYYY-MM-DD" or "MM/DD/YYYY" → Clarion int |
 | `clarionIntToDateString` | `(days, format?)` | Clarion int → date string, format: `'iso'`\|`'us'` |
+| `fromBaseN` | `(str, base?)` | String in base N (2-36) → `BigInt`, default base 36 |
+| `toBaseN` | `(num, base?)` | `number`\|`BigInt` → string in base N (2-36), default base 36 |
+| `tryFromBaseN` | `(str, base?, fallback?)` | `fromBaseN` with fallback on error |
+| `tryToBaseN` | `(num, base?, fallback?)` | `toBaseN` with fallback on error |
 
 ---
 
@@ -80,6 +84,9 @@ import { ... } from "@warkypublic/artemis-kit/object"
 | `setNestedValue` | `(path, value, obj)` | Set value by dot-notation path, auto-creates intermediates |
 | `objectCompare` | `(obj, objToCompare, deep?)` | Shallow or deep object equality |
 | `createSelectOptions` | `(obj, options?)` | Object → `[{label, value}]` array for select components |
+| `decycle` | `(object, replacer?)` | Deep copy, replacing circular refs with `{"$ref": PATH}` |
+| `retrocycle` | `($)` | Restore circular refs from `{"$ref": PATH}` objects |
+| `stringify_json` | `(object)` | `JSON.stringify` safe for circular references |
 
 ---
 
@@ -203,11 +210,14 @@ Plugin `entry`: `{ timestamp: Date, level: 'ERROR'|'WARN'|'INFO'|'DEBUG', messag
 
 ### `llm`
 ```ts
-import { OpenAPI } from "@warkypublic/artemis-kit/llm"
+import { OpenAPI, Claude } from "@warkypublic/artemis-kit/llm"
 ```
 
 | Function | Signature | Description |
 |---|---|---|
 | `OpenAPI.getTextCompletion` | `({ prompt, options? })` | OpenAI-compatible text completion |
+| `Claude.getClaudeCompletion` | `({ prompt, options? })` | Anthropic Claude messages API completion |
 
-**Options:** `{ url?, apiKey?, maxTokens?, temperature?, topP?, n?, stream?, stop? }`
+**OpenAPI options:** `{ url?, apiKey?, maxTokens?, temperature?, topP?, n?, stream?, stop? }`
+
+**Claude options:** `{ url?, apiKey?, model?, maxTokens?, temperature?, topP?, stopSequences?, system? }`
