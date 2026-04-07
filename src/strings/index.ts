@@ -7,3 +7,4 @@ export * from "./legacy";
 export * from "./uuid";
 export * from "./time";
 export * from "./blankValue";
+export * from "./baseNumber";

@@ -1,5 +1,29 @@
 # @warkypublic/artemis-kit
 
+## 1.0.10
+
+### Patch Changes
+
+- 4058dd3: Added object retrocycle and decycle
+
+## 1.0.9
+
+### Patch Changes
+
+- 0439207: Added tryFromBaseN and tryToBaseN
+
+## 1.0.8
+
+### Patch Changes
+
+- 67a17e5: Added toBaseN and fromBaseN with test cases
+
+## 1.0.7
+
+### Patch Changes
+
+- 1bd493a: Fixed object.getNestedValue to handle null values
+
 ## 1.0.6
 
 ### Patch Changes
