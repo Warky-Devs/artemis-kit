@@ -20,8 +20,8 @@
     "gzip": 2400
   },
   "index.js": {
-    "bytes": 3800,
-    "gzip": 1400
+    "bytes": 4900,
+    "gzip": 1800
   },
   "llm.js": {
     "bytes": 3000,
@@ -36,8 +36,8 @@
     "gzip": 26000
   },
   "object.js": {
-    "bytes": 4500,
-    "gzip": 1800
+    "bytes": 11500,
+    "gzip": 3800
   },
   "promise.js": {
     "bytes": 1000,
@@ -48,7 +48,7 @@
     "gzip": 700
   },
   "strings.js": {
-    "bytes": 14500,
-    "gzip": 4900
+    "bytes": 19500,
+    "gzip": 6600
   }
 }

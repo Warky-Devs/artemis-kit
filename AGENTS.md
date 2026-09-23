@@ -6,6 +6,10 @@ Gitea at https://git.warky.dev; workflows belong in `.gitea/workflows/`.
 
 ## Development checks
 
+`pnpm-workspace.yaml` explicitly allows esbuild install scripts through
+`allowBuilds` for pnpm versions that require dependency build approval. Keep
+approvals scoped to the dependencies that need them.
+
 Run `pnpm test` for the test suite and `pnpm check:bundle` for a production build
 with bundle checks. Builds fail on direct eval warnings. The bundle check measures
 raw and gzip bytes for every emitted JavaScript file against

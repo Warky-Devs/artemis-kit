@@ -8,3 +8,5 @@ export * from "./uuid";
 export * from "./time";
 export * from "./blankValue";
 export * from "./baseNumber";
+
+export * from "./text";
