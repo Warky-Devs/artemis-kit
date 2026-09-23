@@ -42,6 +42,22 @@ repository's user or organization (not necessarily the npm scope `warkypublic`).
    pnpm, which applies the `publishConfig` entries for built JavaScript and
    declarations.
 
+## Cutting a release with `make release`
+
+`make release [BUMP=patch|minor|major]` (default `patch`) runs
+`scripts/release.sh`, which:
+
+1. Finds commits since the last changeset file (`.changeset/*.md`) and writes
+   a new changeset from their subject lines, bumping `@warkypublic/artemis-kit`
+   by `BUMP`.
+2. Runs `pnpm changeset version` to consume the changeset and bump the
+   package version/changelog.
+3. Commits the result, tags it `v<new-version>`, and pushes the commit and
+   tag to `origin` (GitHub) — this triggers `.github/workflows/publish_github.yml`.
+
+It exits without changes if there are no commits since the last changeset, or
+if the resulting tag already exists.
+
 Stable versions receive the `latest` dist-tag; prereleases receive `next`.
 Existing package versions cannot be overwritten; release a new version instead.
 This workflow adds Gitea as a publishing destination without changing the default

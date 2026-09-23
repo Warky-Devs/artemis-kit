@@ -1,5 +1,15 @@
 # @warkypublic/artemis-kit
 
+## 1.1.1
+
+### Patch Changes
+
+- - ci(publish): update checkout ref logic for release tags
+  - ci(publish): update workflow to include release tag verification
+  - ci(publish): add GitHub Actions workflow for package publishing
+  - ci(publish): update workflow to require release_tag input
+  - docs(publish): update publishing instructions for manual dispatch
+
 ## 1.1.0
 
 ### Minor Changes
