@@ -46,8 +46,13 @@ if git rev-parse "$TAG" >/dev/null 2>&1; then
   exit 1
 fi
 
-git add -A
-git commit -m "RELEASING: Releasing 1 package(s)"
+# .changeset/config.json has "commit": true, so `changeset version` already
+# committed the bump itself; only commit here if something was left behind.
+if [ -n "$(git status --porcelain)" ]; then
+  git add -A
+  git commit -m "RELEASING: Releasing 1 package(s)"
+fi
+
 git tag "$TAG"
 git push origin HEAD "$TAG"
 
