@@ -4,6 +4,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing tag to publish (must match package.json version, e.g. v1.1.0)
+        required: true
+        type: string
 
 jobs:
   publish:
@@ -12,6 +17,8 @@ jobs:
       PACKAGE_REGISTRY: https://git.warky.dev/api/packages/${{ gitea.repository_owner }}/npm/
     steps:
       - uses: https://github.com/actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag || gitea.ref }}
       - uses: https://github.com/pnpm/action-setup@v4
       - uses: https://github.com/actions/setup-node@v4
         with:
@@ -21,13 +28,18 @@ jobs:
           cache: pnpm
       - name: Verify release tag
         env:
-          RELEASE_REF: ${{ gitea.ref }}
+          EVENT_NAME: ${{ gitea.event_name }}
+          TRIGGER_REF: ${{ gitea.ref }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           node --input-type=module <<'JS'
           import { readFileSync } from 'node:fs';
           const { version } = JSON.parse(readFileSync('package.json', 'utf8'));
-          if (process.env.RELEASE_REF !== `refs/tags/v${version}`) {
-            throw new Error(`Release tag must be v${version} to match package.json`);
+          const tag = process.env.EVENT_NAME === 'workflow_dispatch'
+            ? process.env.RELEASE_TAG
+            : process.env.TRIGGER_REF.replace(/^refs\/tags\//, '');
+          if (tag !== `v${version}`) {
+            throw new Error(`Release tag must be v${version}; received ${tag || '(empty)'}`);
           }
           JS
       - run: pnpm install --frozen-lockfile
