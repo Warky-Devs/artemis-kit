@@ -1,0 +1,54 @@
+{
+  "base64.js": {
+    "bytes": 2200,
+    "gzip": 800
+  },
+  "collections.js": {
+    "bytes": 850,
+    "gzip": 425
+  },
+  "dataqueue.js": {
+    "bytes": 12000,
+    "gzip": 3500
+  },
+  "dom.js": {
+    "bytes": 500,
+    "gzip": 350
+  },
+  "i18n.js": {
+    "bytes": 7000,
+    "gzip": 2400
+  },
+  "index.js": {
+    "bytes": 3800,
+    "gzip": 1400
+  },
+  "llm.js": {
+    "bytes": 3000,
+    "gzip": 1200
+  },
+  "logger.js": {
+    "bytes": 1800,
+    "gzip": 850
+  },
+  "mime.js": {
+    "bytes": 205000,
+    "gzip": 26000
+  },
+  "object.js": {
+    "bytes": 4500,
+    "gzip": 1800
+  },
+  "promise.js": {
+    "bytes": 1000,
+    "gzip": 550
+  },
+  "sorting.js": {
+    "bytes": 1400,
+    "gzip": 700
+  },
+  "strings.js": {
+    "bytes": 14500,
+    "gzip": 4900
+  }
+}

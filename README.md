@@ -8,6 +8,63 @@ TypeScript/JavaScript utility library. Tree-shakeable, split exports per module.
 
 ## Modules
 
+### `collections`
+
+```ts
+import { groupBy, keyBy, uniqueBy, partition } from "@warkypublic/artemis-kit/collections"
+
+const rows = [
+  { id: 1, team: "red", score: 10 },
+  { id: 2, team: "blue", score: 5 },
+  { id: 3, team: "red", score: 20 },
+]
+const teams = groupBy(rows, row => row.team) // Map<string, Row[]>
+const byId = keyBy(rows, row => row.id) // Map<number, Row>
+const representatives = uniqueBy(rows, row => row.team) // first row per team
+const [high, low] = partition(rows, row => row.score >= 10)
+```
+
+All helpers accept readonly arrays and preserve input order without mutating the input.
+Items retain their original references. `groupBy` and `keyBy` return `Map` instances;
+keys use Map/Set equality (object identity, with NaN equal to NaN).
+`keyBy` keeps the last item for a duplicate key; `uniqueBy` keeps the first.
+`partition` returns `[matching, nonMatching]` arrays.
+
+### `sorting`
+
+```ts
+import { compareBy, chainComparators, createComparator } from "@warkypublic/artemis-kit/sorting"
+
+const sorted = [...rows].sort(chainComparators(
+  compareBy<(typeof rows)[number]>(row => row.team, { locale: "en" }),
+  compareBy<(typeof rows)[number]>(row => row.score, { direction: "desc" }),
+))
+const labels = ["item10", "item2"].sort(createComparator({ locale: "en" }))
+// ["item2", "item10"]
+```
+
+Comparators accept strings, numbers, dates, null, and undefined. Options:
+
+| Option | Default | Behavior |
+|---|---|---|
+| `direction` | `"asc"` | `"asc"` or `"desc"` |
+| `empty` | `"last"` | `"first"` or `"last"`, independent of direction |
+| `locale` | Runtime locale | Locale string or ordered list of locales |
+| `collator` | `{ numeric: true }` | `Intl.Collator` options, created once per comparator |
+
+Empty values are null, undefined, `""`, NaN, and invalid dates. Whitespace strings
+are not empty. Numbers compare numerically and dates by timestamp. Mixed types
+sort numbers, then dates, then strings in ascending order; strings are never coerced
+to numbers. `chainComparators` returns zero when all criteria tie.
+
+Use `compareBy` to sort rows with missing values: JavaScript's `Array.sort` always
+moves bare undefined elements to the end without invoking the comparator, even with
+`empty: "first"`. Sorting mutates the array; copy it first as shown above.
+
+These helpers and their types are also available from the package root.
+
+---
+
 ### `strings`
 ```ts
 import { ... } from "@warkypublic/artemis-kit/strings"
@@ -221,3 +278,16 @@ import { OpenAPI, Claude } from "@warkypublic/artemis-kit/llm"
 **OpenAPI options:** `{ url?, apiKey?, maxTokens?, temperature?, topP?, n?, stream?, stop? }`
 
 **Claude options:** `{ url?, apiKey?, model?, maxTokens?, temperature?, topP?, stopSequences?, system? }`
+
+## Installing from Gitea Packages
+
+To install from Gitea, put this scope mapping in the consuming project's `.npmrc`,
+replacing `<owner>` with the Gitea repository owner:
+
+```ini
+@warkypublic:registry=https://git.warky.dev/api/packages/<owner>/npm/
+```
+
+Then run `pnpm add @warkypublic/artemis-kit`. For private packages, also configure
+an authentication token with package-read access in your user-level npm config or
+CI secrets. The scope mapping routes all `@warkypublic` packages to this registry.

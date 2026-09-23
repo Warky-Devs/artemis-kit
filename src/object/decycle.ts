@@ -90,10 +90,20 @@ export function retrocycle<T>($: T): T {
     "use strict";
 
     // Regular expression to validate JSONPath format
-    // NOTE: This function uses eval() which can be a security risk.
-    // Consider using a safer alternative in production environments.
     // eslint-disable-next-line no-control-regex
-    const px = /^\$(?:\[(?:\d+|"(?:[^\\"\u0000-\u001f]|\\(?:[\\"\/bfnrt]|u[0-9a-zA-Z]{4}))*")\])*$/;
+    const px = /^\$(?:\[(?:\d+|"(?:[^\\"\u0000-\u001f]|\\(?:[\\"/bfnrt]|u[0-9a-fA-F]{4}))*")\])*$/;
+
+    // Paths contain only bracketed array indices or JSON-encoded property names.
+    // Decode each component and walk from the root without executing JavaScript.
+    function resolvePath(path: string): any {
+        const components = path.match(/\[(?:\d+|"(?:[^"\\]|\\.)*")\]/g) ?? [];
+        let value: any = $;
+        for (const component of components) {
+            const key = component.slice(1, -1);
+            value = value[key.startsWith('"') ? JSON.parse(key) : Number(key)];
+        }
+        return value;
+    }
 
     (function rez(value: any): void {
         // The rez function walks recursively through the object looking for $ref
@@ -106,8 +116,7 @@ export function retrocycle<T>($: T): T {
                     if (typeof element === "object" && element !== null) {
                         const path = element.$ref;
                         if (typeof path === "string" && px.test(path)) {
-                            // Security warning: eval is used here
-                            value[i] = eval(path);
+                            value[i] = resolvePath(path);
                         } else {
                             rez(element);
                         }
@@ -119,8 +128,7 @@ export function retrocycle<T>($: T): T {
                     if (typeof item === "object" && item !== null) {
                         const path = item.$ref;
                         if (typeof path === "string" && px.test(path)) {
-                            // Security warning: eval is used here
-                            value[name] = eval(path);
+                            value[name] = resolvePath(path);
                         } else {
                             rez(item);
                         }

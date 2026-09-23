@@ -2,6 +2,46 @@ import { describe, it, expect } from 'vitest';
 import { decycle, retrocycle } from './decycle';
 
 describe('decycle and retrocycle functions', () => {
+  it('restores shared references through mixed object and array paths', () => {
+    const shared = { id: 'shared' };
+    const restored = retrocycle(JSON.parse(JSON.stringify(decycle({
+      items: [{ nested: shared }],
+      objectRef: shared,
+      arrayRefs: [shared],
+    }))));
+    expect(restored.objectRef).toBe(restored.items[0].nested);
+    expect(restored.arrayRefs[0]).toBe(restored.items[0].nested);
+  });
+
+  it.each(['', 'a"b', 'a\\b', 'a][b', 'line\n\t\u0000', '雪', '0', 'constructor'])(
+    'restores references to the property %j', (key) => {
+      const shared = { id: 'shared' };
+      const restored = retrocycle(JSON.parse(JSON.stringify(decycle({
+        [key]: shared,
+        references: [shared],
+      }))));
+      expect(restored.references[0]).toBe(restored[key]);
+    },
+  );
+
+  it('decodes JSON escapes in reference paths', () => {
+    const target = {};
+    const restored = retrocycle({
+      'a/b': target,
+      ref: { $ref: '$["\\u0061\\/b"]' },
+    });
+    expect(restored.ref).toBe(target);
+  });
+
+  it.each(['$.target', '$[target]', '$["target"]()', '$["\\uZZZZ"]', '$["target"', ''])(
+    'leaves invalid reference paths unchanged: %s', (path) => {
+      const ref = { $ref: path };
+      const restored = retrocycle({ target: {}, objectRef: ref, arrayRefs: [ref] });
+      expect(restored.objectRef).toBe(ref);
+      expect(restored.arrayRefs[0]).toBe(ref);
+    },
+  );
+
   it('should handle non-circular objects correctly', () => {
     const obj = { a: 1, b: 'string', c: true };
     const decycled = decycle(obj);

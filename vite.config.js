@@ -7,6 +7,8 @@ export default defineConfig({
   build: {
     lib: {
       entry: {
+        collections: resolve(__dirname, "src/collections/index.ts"),
+        sorting: resolve(__dirname, "src/sorting/index.ts"),
         index: resolve(__dirname, "src/index.ts"),
         object: resolve(__dirname, "src/object/index.ts"),
         dataqueue: resolve(__dirname, "src/dataqueue/index.ts"),
@@ -28,6 +30,10 @@ export default defineConfig({
       },
     },
     rollupOptions: {
+      onwarn(warning, warn) {
+        if (warning.code === "EVAL") throw new Error(warning.message);
+        warn(warning);
+      },
       external: [
         "fs",
         "path",
