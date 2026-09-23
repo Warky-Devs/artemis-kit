@@ -1,5 +1,18 @@
 # @warkypublic/artemis-kit
 
+## 1.1.0
+
+### Minor Changes
+
+- 538ec38: Add typed collection helpers (groupBy, keyBy, uniqueBy, partition) and configurable sorting comparators through root, collections, and sorting exports. Add CI bundle size budgets and fail builds on direct eval warnings.
+- 280a7ea: Add object selection, mapping, compaction, inversion, cloning, merging, freezing, flattening, and diff helpers. Export DeepPartial, DeepReadonly, DeepRequired, Mutable, KeysOfType, and Prettify types, with examples and documented handling of cycles, arrays, and property names.
+- 280a7ea: Add string helpers for truncation, normalization, searching, interpolation, masking, affixes, splitting, prefixes, wrapping, indentation, UTF-8 byte length, initials, labels, slugs, and natural sorting. Export the helpers and MaskOptions from the strings module and package root, with documented Unicode behavior and edge cases.
+
+### Patch Changes
+
+- fb5d98e: - 538ec38 — Added groupBy, keyBy, uniqueBy, and partition, plus locale-aware sorting and multi-column comparators.
+- 538ec38: Replace direct eval in retrocycle with JSONPath property traversal to eliminate bundler eval warnings when importing artemis-kit. Preserve circular and shared reference restoration, including escaped property names.
+
 ## 1.0.10
 
 ### Patch Changes
