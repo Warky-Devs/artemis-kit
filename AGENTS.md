@@ -23,7 +23,8 @@ collection or sorting helpers.
 ## Publishing to Gitea Packages
 
 `.gitea/workflows/publish.yml` publishes `@warkypublic/artemis-kit` when a `v*`
-tag is pushed to Gitea. The destination is
+tag is pushed to Gitea or manually dispatched from the Actions UI. The
+destination is
 `https://git.warky.dev/api/packages/<owner>/npm/`, where `<owner>` is the Gitea
 repository's user or organization (not necessarily the npm scope `warkypublic`).
 
@@ -34,7 +35,9 @@ repository's user or organization (not necessarily the npm scope `warkypublic`).
 2. Run `pnpm exec changeset version` to apply pending changesets. Review and commit
    the updated version, changelog, and consumed changesets with the release changes.
 3. Create and push a matching tag to the Gitea remote, for example `v1.1.0` for
-   package version `1.1.0`. The workflow rejects mismatched tags, runs the tests and
+   package version `1.1.0`. To dispatch manually, select that existing matching tag
+   as the workflow run ref in the Actions UI; the workflow rejects branch refs and
+   tags that do not exactly match the package version. It runs the tests and
    bundle checks, then publishes using pnpm so the `publishConfig` overrides point
    consumers to the built JavaScript and declarations.
 
